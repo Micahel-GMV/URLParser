@@ -7,7 +7,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-//Class that makes parsing of given file using dictionary
+//Class that makes parsing of given file using dictionary.
 public class Processor {
 	
 	private long count = 0;//Number of processed strings
