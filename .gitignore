@@ -1,0 +1,6 @@
+*.log
+!urlparser.log
+*.txt
+info.zone
+*.zip
+*.exe

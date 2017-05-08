@@ -6,6 +6,9 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 //Class that makes parsing of given file using dictionary.
 public class Processor {
@@ -47,11 +50,19 @@ public class Processor {
 		private Dictionary dict;
 		private int index;//Index of current thread. 	
 		private boolean pause = false;//Flag to pause thread while line is set.
+		private Future<?> threadLink;		
 		
+		public void setThreadLink(Future<?> future) {
+			this.threadLink = future;
+		}
+		
+		public boolean isDone(){
+			return threadLink.isDone();
+		}
+
 		public StrigParser(Dictionary dict, int index){ //Primary init of object
 			this.dict = dict;
 			this.index = index;
-			start();
 		}
 		
 		public void setString(char[] line) {//Here we send string to parse
@@ -60,7 +71,9 @@ public class Processor {
 			pause = false;
 		}
 		
-		public void run(){ // Method that runs in thread and processes lines       	        	
+		@Override
+		public void run(){ // Method that runs in thread and processes lines  
+			//System.out.print(" inRunStart " + index + " ");
         	int lastChar = 0;
         	parserResults[index].s = "";
         	while ( (pause)&&(!parserResults[index].processed) ) ;
@@ -77,20 +90,14 @@ public class Processor {
         					result[lastChar++] = ' ';        					
         				}
         		if (lastChar>0) parserResults[index].s = new String(result, 0 , lastChar-1); 
-        		parserResults[index].processed = true;        		
+        		parserResults[index].processed = true;
+        		//System.out.print(" inRunEnd "  + index + " ");
         	}
         	
 		}
 		
 	}	
 	
-	private void createThreads(){//Here we creare threadNumber threads
-        for (int i = 0; i < threadNumber; i++) {
-        	threads[i] = new StrigParser(dict, i);	        	
-        	parserResults[i] = new ParserResult();	        	
-        	parserResults[i].processed = true;	        	
-        }		
-	}
 	
 	//Main method of this class. Here we set buffered readers and writes to work with files, creating threads, processing each line 
 	//with its own thread and write result to file.
@@ -98,16 +105,22 @@ public class Processor {
 	       	FileReader reader = new FileReader(fileIn);
 	       	FileWriter writer = new FileWriter(fileOut,false);
 	        BufferedReader br = new BufferedReader(reader);
-	        BufferedWriter bw = new BufferedWriter(writer);	        
-	        createThreads();
+	        BufferedWriter bw = new BufferedWriter(writer);
+	        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+	        for (int i = 0; i < threadNumber; i++) {
+	        	threads[i] = new StrigParser(dict, i);	        	
+	        	parserResults[i] = new ParserResult();	        	
+	        	parserResults[i].processed = true;	        	
+	        }		        
 	        logger.writeEvent("" + threadNumber + " threads created.");
 	        String line;
 	        long curTime,prevTime = System.currentTimeMillis();
-	        while(br.ready()) {
+	        while(br.ready()) {	        	
 	        	for (int i = 0; i < threadNumber; i++){
-		        	line = br.readLine();
+		        	line = br.readLine();		        	
 		        	if (line != null) {
-			        	count++;
+		        		//System.out.print(line);
+			        	count++;			        	
 			        	if (count%reportInterval == 0){
 			        		curTime = System.currentTimeMillis();
 			        		System.out.println("" + count/1000 + "k lines processed at speed of " + 
@@ -116,18 +129,20 @@ public class Processor {
 			        	}			        	
 			        	line = line.trim().toLowerCase();			        	
 			        	threads[i].setString(line.toCharArray());
-			        	parserResults[i].processed = false;			        	
-			        	threads[i].run();			        	
-			        	try {
+			        	parserResults[i].processed = false;
+			        	//System.out.print(" submit ");
+			        	threads[i].setThreadLink(executorService.submit(threads[i]));			        	
+			        	/*try {
 							threads[i].join();
 						} catch (InterruptedException e) {
 							logger.writeEvent("Thread " + i + "interrupted.");
 							e.printStackTrace();
-						}	        				        	
+						}*/
+			        	//System.out.println(" endSubmit ");
 		        	} else parserResults[i].s = null;		        	
 	        	}
 	        	for (int i = 0; i < threadNumber; i++){
-	        		while ( ! parserResults[i].processed ) ;	        		
+	        		while ( ! threads[i].isDone() ) ;//System.out.println("waiting " + i);	        		
 	        		if ( (parserResults[i].s != null) && (parserResults[i].s!="") ) 
 	        			bw.write(parserResults[i].s + "\n");
 	        	}
