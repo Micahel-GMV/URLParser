@@ -3,5 +3,7 @@
 !urlparser.log
 *.txt
 info.zone
+target/*
+.idea/*
 *.zip
 *.exe

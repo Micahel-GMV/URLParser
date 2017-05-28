@@ -1,9 +1,9 @@
-package com.java.urlparser;
+package com.gudzenko;
 
 import java.io.File;
 import java.io.IOException;
 
-public class URLParser {
+public class UrlParser {
 	public static void main(String[] args) {
 		String logFileName = "urlparser.log";
 		File logFile = new File(logFileName);

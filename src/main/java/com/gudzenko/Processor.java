@@ -1,4 +1,4 @@
-package com.java.urlparser;
+package com.gudzenko;;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
