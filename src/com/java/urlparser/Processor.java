@@ -16,14 +16,15 @@ public class Processor {
 	private long count = 0;//Number of processed strings
 	private StrigParser[] threads;//Array of processing threads
 	private int threadNumber;//Number of threads
-	private ParserResult parserResults[];//Each thread will return results of processing here
+	private ParserResult[] parserResults;//Each thread will return results of processing here
 	private Dictionary dict;//Dictionary that will be used when processing
 	private Logger logger;//Logger to write log
 	private final long reportInterval = 50_000;//How much lines we will process before reporting performance.
 	
 	private class ParserResult{
-		String s; //Result of processing
+		char[] s; //Result of processing
 		boolean processed;//Flag that we can read result
+		int length;
 	}
 	
 	//Primary init of processor class. Dictionary, number of threads and logger.
@@ -67,15 +68,14 @@ public class Processor {
 		
 		public void setString(char[] line) {//Here we send string to parse
 			pause = true;
-			this.line = line;
+			this.line = line.clone();
 			pause = false;
 		}
 		
 		@Override
 		public void run(){ // Method that runs in thread and processes lines  
-			//System.out.print(" inRunStart " + index + " ");
         	int lastChar = 0;
-        	parserResults[index].s = "";
+        	parserResults[index].s = null;
         	while ( (pause)&&(!parserResults[index].processed) ) ;
         	if (line!=null) {
         		char[] result = new char[3 * line.length + 1];        		
@@ -89,9 +89,12 @@ public class Processor {
         					i = j;
         					result[lastChar++] = ' ';        					
         				}
-        		if (lastChar>0) parserResults[index].s = new String(result, 0 , lastChar-1); 
-        		parserResults[index].processed = true;
-        		//System.out.print(" inRunEnd "  + index + " ");
+        		if (lastChar>0) {
+        			parserResults[index].s = result;
+        			parserResults[index].length = lastChar-1;        					
+        			parserResults[index].processed = true;
+        		}
+        		        		
         	}
         	
 		}
@@ -119,7 +122,6 @@ public class Processor {
 	        	for (int i = 0; i < threadNumber; i++){
 		        	line = br.readLine();		        	
 		        	if (line != null) {
-		        		//System.out.print(line);
 			        	count++;			        	
 			        	if (count%reportInterval == 0){
 			        		curTime = System.currentTimeMillis();
@@ -130,21 +132,16 @@ public class Processor {
 			        	line = line.trim().toLowerCase();			        	
 			        	threads[i].setString(line.toCharArray());
 			        	parserResults[i].processed = false;
-			        	//System.out.print(" submit ");
 			        	threads[i].setThreadLink(executorService.submit(threads[i]));			        	
-			        	/*try {
-							threads[i].join();
-						} catch (InterruptedException e) {
-							logger.writeEvent("Thread " + i + "interrupted.");
-							e.printStackTrace();
-						}*/
-			        	//System.out.println(" endSubmit ");
+
 		        	} else parserResults[i].s = null;		        	
 	        	}
 	        	for (int i = 0; i < threadNumber; i++){
-	        		while ( ! threads[i].isDone() ) ;//System.out.println("waiting " + i);	        		
-	        		if ( (parserResults[i].s != null) && (parserResults[i].s!="") ) 
-	        			bw.write(parserResults[i].s + "\n");
+	        		while ( ! threads[i].isDone() ) ;	        		
+	        		if ( (parserResults[i].s != null) && (parserResults[i].s!=null) ) {
+	        				bw.write( new String(parserResults[i].s, 0 , parserResults[i].length));
+	        				bw.write("\n");	        			
+	        			}
 	        	}
 	        }
 	        br.close();
